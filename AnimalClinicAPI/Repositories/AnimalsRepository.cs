@@ -34,14 +34,15 @@ public class AnimalsRepository : IAnimalsRepository
     public async Task<GetAnimalsDTO> GetAnimal(int id)
     {
         var query = 
-                  @"SELECT ID as AnimalId, Name as AnimalName, AdmissionDate as AnimalDate,
-                    O.LastName as OwnerLastName, O.FirstName as OwnerFirstName,
-                    P.Name as ProcedureName, P.Description as ProcedureDescription
-                    FROM Animal 
-                    JOIN dbo.Procedure_Animal PA on Animal.ID = PA.Animal_ID
+                  @"SELECT A.ID as AnimalId, A.Name as AnimalName, A.AdmissionDate as AnimalDate,
+                    O.LastName as OwnerLastName, O.FirstName as OwnerFirstName, O.ID as OwnerId,
+                    P.Name as ProcedureName, P.Description as ProcedureDescription,
+                    PA.Date as ProcedureAnimalDate
+                    FROM Animal A
+                    JOIN dbo.Procedure_Animal PA on A.ID = PA.Animal_ID
                     JOIN dbo.[Procedure] P on P.ID = PA.Procedure_ID
-                    JOIN dbo.Owner O on O.ID = Animal.Owner_ID
-                    WHERE ID = @IdAnimal";
+                    JOIN dbo.Owner O on O.ID = A.Owner_ID
+                    WHERE A.ID = @IdAnimal";
         
         await using var  connection =  new SqlConnection(_configuration.GetConnectionString("Default"));
         await using var command = new SqlCommand();
@@ -56,10 +57,12 @@ public class AnimalsRepository : IAnimalsRepository
         var animalId = reader.GetOrdinal("AnimalId");
         var animalName = reader.GetOrdinal("AnimalName");
         var animalDate = reader.GetOrdinal("AnimalDate");
-        var OwnerLastName = reader.GetOrdinal("OwnerLastName");
-        var OwnerFirstName = reader.GetOrdinal("OwnerFirstName");
-        var ProcedureName = reader.GetOrdinal("ProcedureName");
-        var ProcedureDescription = reader.GetOrdinal("ProcedureDescription");
+        int  ownerLastName = reader.GetOrdinal("OwnerLastName");
+        var ownerFirstName = reader.GetOrdinal("OwnerFirstName");
+        var procedureName = reader.GetOrdinal("ProcedureName");
+        var procedureDescription = reader.GetOrdinal("ProcedureDescription");
+        var ownerId = reader.GetOrdinal("OwnerId");
+        var procedureDate = reader.GetOrdinal("ProcedureAnimalDate");
         
         
 
@@ -71,8 +74,8 @@ public class AnimalsRepository : IAnimalsRepository
             {
                 animal.Procedures.Add(new GetProcedureDTO()
                 {
-                    Description = reader.GetString(ProcedureDescription),
-                    Name = reader.GetString(ProcedureName)
+                    Description = reader.GetString(procedureDescription),
+                    Name = reader.GetString(procedureName)
                 });
             }
             else
@@ -84,15 +87,23 @@ public class AnimalsRepository : IAnimalsRepository
                     AdmissionDate = reader.GetDateTime(animalDate),
                     Owner = new OwnerDTO()
                     {
-                        FirstName = reader.GetString(OwnerFirstName),
-                        LastName = reader.GetString(OwnerLastName),
+                        Id = reader.GetInt32(ownerId),
+                        FirstName = reader.GetString(ownerFirstName),
+                        LastName = reader.GetString(ownerLastName),
                     },
-                    Procedures = new List<GetProcedureDTO>()
+                    Procedures = new List<GetProcedureDTO>
+                    {
+                        new()
+                        {
+                            Description = reader.GetString(procedureDescription),
+                            Name = reader.GetString(procedureName),
+                            Date = reader.GetDateTime(procedureDate)
+                        }
+                    }
                 };
             }
         }
 
-        if (animal is null) throw new Exception();
 
         return animal;
 
@@ -136,7 +147,7 @@ public class AnimalsRepository : IAnimalsRepository
 
     public async Task AddAnimal(AddAnimalDTO addAnimalDto)
     {
-        var insert = @"INSERT INTO Animal VALUES (@Name, @AdmissionDate, @OwnerId) SELECT @@IDENTITY AS ID;";
+        var insert = @"INSERT INTO Animal VALUES (@Name, @AdmissionDate, @OwnerId, 1) SELECT @@IDENTITY AS ID;";
 
         await using var connection = new SqlConnection(_configuration.GetConnectionString("Default"));
         await using var command = new SqlCommand();

@@ -20,7 +20,7 @@ public class AnimalsController : ControllerBase
     {
         if (!await _animalsRepository.AnimalExists(id))
         {
-            return NotFound("Animal for id: ("+id+") not found!");
+            return NotFound(new ExceptionDTO(){Message = "Animal for id: ("+id+") not found!", StatusCode = "404"});
         }
 
         var result = await _animalsRepository.GetAnimal(id);
@@ -32,17 +32,24 @@ public class AnimalsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddAnimal(AddAnimalDTO addAnimalDto)
     {
-        if (!await _animalsRepository.OwnerExists(addAnimalDto.OwnerId)) return NotFound("Owner for id: (" + addAnimalDto.OwnerId + ") not found!");
+        if (!await _animalsRepository.OwnerExists(addAnimalDto.OwnerId)) return NotFound(new ExceptionDTO(){Message = "Animal for id: ("+addAnimalDto.OwnerId+") not found!", StatusCode = "404"});
         
 
         var procedures = addAnimalDto.Procedures;
         foreach (var procedure in procedures)
         {
-            if (!await _animalsRepository.ProcedureExists(procedure.ProcedureId)) return NotFound("Procedure for id: (" + procedure.ProcedureId + ") not found!");
+            if (!await _animalsRepository.ProcedureExists(procedure.ProcedureId)) return NotFound(new ExceptionDTO(){Message = "Procedure for id: ("+procedure.ProcedureId+") not found!", StatusCode = "404"});
         }
 
-        await _animalsRepository.AddAnimal(addAnimalDto);
-        
+        try
+        {
+            await _animalsRepository.AddAnimal(addAnimalDto);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new ExceptionDTO() { Message = ex.Message, StatusCode = "400" });
+        }
+
         return Created();
     }
 }
